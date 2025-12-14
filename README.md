@@ -5,8 +5,9 @@ apt update && apt install -y git && git clone https://github.com/JoyelTheDev/tun
 
 
 Then run
+for ssh
 ```
-tunnel make (22)
+tunnel make 22
 ```
 
 if want u can install rdp in kvm
@@ -22,4 +23,7 @@ sudo chown $(whoami):$(whoami) ~/.xsession
 
 
 sudo systemctl enable xrdp
-sudo systemctl restart xrdp```
+sudo systemctl restart xrdp
+
+tunnel make 3389
+```
