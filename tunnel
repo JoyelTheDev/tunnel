@@ -8,10 +8,24 @@
 #==============================================================================#
 
 # --- Configuration ---
-# You can change these values to match your remote server details.
-REMOTE_HOST="tunnel.nahmo.pro"
-REMOTE_USER="root"
-SSH_PORT="65535"
+# Choose your tunnel service: "serveo" for free public tunnels or "custom" for your own server
+TUNNEL_SERVICE="serveo"  # Options: "serveo" or "custom"
+
+# --- Serveo.net Configuration (Free Public Tunnel Service) ---
+# Serveo.net provides free reverse SSH tunnels with random subdomains
+# No authentication required - anyone can connect to your tunnel!
+SERVEO_HOST="serveo.net"
+SERVEO_PORT="22"  # Standard SSH port
+
+# Optional: Request a specific subdomain (e.g., "myapp" for myapp.serveo.net)
+# Leave empty for a random subdomain
+SERVEO_SUBDOMAIN=""
+
+# --- Custom Server Configuration ---
+# Use this if you have your own SSH server for tunnels
+CUSTOM_HOST="tunnel.nahmo.pro"
+CUSTOM_USER="root"
+CUSTOM_PORT="65535"
 
 # --- Colors and Emojis ---
 # Making the output vibrant and clear!
@@ -33,12 +47,22 @@ EMOJI_ERROR="❌"
 EMOJI_STOP="🛑"
 EMOJI_LIST="📋"
 EMOJI_WAVE="👋"
+EMOJI_WARNING="⚠️"
+EMOJI_GLOBE="🌐"
 
 # --- Helper Functions ---
 
 # Function to display the help/usage message
 usage() {
     echo -e "${C_WHITE}🚇 Tunnelsmith - a friendly tunnel manager${C_RESET}"
+    echo -e "---------------------------------------------------"
+    echo -e "${C_YELLOW}Service Mode:${C_RESET} ${C_CYAN}${TUNNEL_SERVICE}${C_RESET}"
+    if [ "$TUNNEL_SERVICE" = "serveo" ]; then
+        echo -e "${C_YELLOW}Using:${C_RESET} ${C_GREEN}Serveo.net (Free Public Tunnel Service)${C_RESET}"
+        echo -e "${EMOJI_WARNING} ${C_YELLOW}Note: Tunnels are public and accessible by anyone!${C_RESET}"
+    else
+        echo -e "${C_YELLOW}Using:${C_RESET} ${C_PURPLE}${CUSTOM_HOST}${C_RESET}"
+    fi
     echo -e "---------------------------------------------------"
     echo -e "${C_YELLOW}Usage:${C_RESET} ${C_CYAN}$0 ${C_PURPLE}<command> [options]${C_RESET}\n"
     echo -e "${C_PURPLE}Commands:${C_RESET}"
@@ -50,6 +74,29 @@ usage() {
     echo -e "  ${C_CYAN}killall${C_RESET}             ${EMOJI_STOP} Stop all active tunnels.\n"
     echo -e "  ${C_CYAN}help${C_RESET}                ${EMOJI_WAVE} Show this help message."
     echo -e "---------------------------------------------------"
+}
+
+# Function to display service information
+show_service_info() {
+    if [ "$TUNNEL_SERVICE" = "serveo" ]; then
+        echo -e "${EMOJI_GLOBE} ${C_CYAN}Service:${C_RESET} ${C_GREEN}Serveo.net${C_RESET}"
+        echo -e "  ${C_WHITE}•${C_RESET} Free public reverse SSH tunnels"
+        echo -e "  ${C_WHITE}•${C_RESET} No authentication required"
+        echo -e "  ${C_WHITE}•${C_RESET} Random subdomains assigned"
+        if [ -n "$SERVEO_SUBDOMAIN" ]; then
+            echo -e "  ${C_WHITE}•${C_RESET} Requesting subdomain: ${C_YELLOW}${SERVEO_SUBDOMAIN}.serveo.net${C_RESET}"
+        else
+            echo -e "  ${C_WHITE}•${C_RESET} Using random subdomain"
+        fi
+        echo -e "${EMOJI_WARNING} ${C_YELLOW}Security Note: Anyone can access your tunnel!${C_RESET}"
+        echo
+    else
+        echo -e "${EMOJI_GEAR} ${C_CYAN}Service:${C_RESET} ${C_PURPLE}Custom Server${C_RESET}"
+        echo -e "  ${C_WHITE}•${C_RESET} Server: ${C_YELLOW}${CUSTOM_HOST}${C_RESET}"
+        echo -e "  ${C_WHITE}•${C_RESET} User: ${C_YELLOW}${CUSTOM_USER}${C_RESET}"
+        echo -e "  ${C_WHITE}•${C_RESET} Port: ${C_YELLOW}${CUSTOM_PORT}${C_RESET}"
+        echo
+    fi
 }
 
 # --- Main Logic ---
@@ -72,61 +119,140 @@ case "$1" in
 
         # Generate a random remote port between 10000 and 65535
         REMOTE_PORT=$(( RANDOM % 55535 + 10000 ))
+        
+        show_service_info
 
-        echo -e "\n${EMOJI_TUNNEL} ${C_BLUE}Forging a new tunnel...${C_RESET}"
-        echo -e "${EMOJI_GEAR} ${C_YELLOW}Preparing to connect to ${C_WHITE}${REMOTE_HOST}${C_RESET}"
-        echo -e "${EMOJI_LINK} ${C_CYAN}Forwarding:${C_RESET} Local Port ${C_WHITE}${LOCAL_PORT}${C_RESET} -> ${C_WHITE}${REMOTE_HOST}:${REMOTE_PORT}${C_RESET}\n"
-
-        # The magic command. It runs in the background and won't die when you close the terminal.
-        # -o StrictHostKeyChecking=no: Automatically adds the host key to known_hosts to prevent prompts.
-        # -o ExitOnForwardFailure=yes: Fails if the remote port is already in use (good for feedback!)
-        # -o ServerAliveInterval=60: Keeps the connection from timing out.
-        nohup ssh -o StrictHostKeyChecking=no -o ExitOnForwardFailure=yes -o ServerAliveInterval=60 \
-            -N -R ${REMOTE_PORT}:localhost:${LOCAL_PORT} \
-            ${REMOTE_USER}@${REMOTE_HOST} -p ${SSH_PORT} &> /tmp/tunnel_${REMOTE_PORT}.log &
+        echo -e "${EMOJI_TUNNEL} ${C_BLUE}Forging a new tunnel...${C_RESET}"
+        
+        if [ "$TUNNEL_SERVICE" = "serveo" ]; then
+            # Serveo.net connection
+            echo -e "${EMOJI_GEAR} ${C_YELLOW}Connecting to Serveo.net...${C_RESET}"
+            
+            if [ -n "$SERVEO_SUBDOMAIN" ]; then
+                # With custom subdomain request
+                echo -e "${EMOJI_LINK} ${C_CYAN}Requesting subdomain:${C_RESET} ${C_WHITE}${SERVEO_SUBDOMAIN}.serveo.net${C_RESET}"
+                echo -e "${EMOJI_LINK} ${C_CYAN}Forwarding:${C_RESET} Local Port ${C_WHITE}${LOCAL_PORT}${C_RESET} → ${C_WHITE}${SERVEO_SUBDOMAIN}.serveo.net:${REMOTE_PORT}${C_RESET}\n"
+                
+                # The magic command for Serveo.net with custom subdomain
+                nohup ssh -o StrictHostKeyChecking=no -o ExitOnForwardFailure=yes \
+                    -o ServerAliveInterval=60 -N \
+                    -R ${SERVEO_SUBDOMAIN}:${REMOTE_PORT}:localhost:${LOCAL_PORT} \
+                    ${SERVEO_HOST} -p ${SERVEO_PORT} &> /tmp/tunnel_${SERVEO_SUBDOMAIN}_${REMOTE_PORT}.log &
+                
+                FINAL_HOST="${SERVEO_SUBDOMAIN}.serveo.net"
+            else
+                # With random subdomain
+                echo -e "${EMOJI_LINK} ${C_CYAN}Forwarding:${C_RESET} Local Port ${C_WHITE}${LOCAL_PORT}${C_RESET} → ${C_WHITE}random-subdomain.serveo.net${C_RESET}\n"
+                
+                # The magic command for Serveo.net with random subdomain
+                nohup ssh -o StrictHostKeyChecking=no -o ExitOnForwardFailure=yes \
+                    -o ServerAliveInterval=60 -N \
+                    -R ${REMOTE_PORT}:localhost:${LOCAL_PORT} \
+                    ${SERVEO_HOST} -p ${SERVEO_PORT} &> /tmp/tunnel_${REMOTE_PORT}.log &
+                
+                FINAL_HOST="random-subdomain.serveo.net"
+            fi
+            LOG_FILE="/tmp/tunnel_${REMOTE_PORT}.log"
+        else
+            # Custom server connection
+            echo -e "${EMOJI_GEAR} ${C_YELLOW}Connecting to ${C_WHITE}${CUSTOM_HOST}${C_RESET}"
+            echo -e "${EMOJI_LINK} ${C_CYAN}Forwarding:${C_RESET} Local Port ${C_WHITE}${LOCAL_PORT}${C_RESET} → ${C_WHITE}${CUSTOM_HOST}:${REMOTE_PORT}${C_RESET}\n"
+            
+            # The magic command for custom server
+            nohup ssh -o StrictHostKeyChecking=no -o ExitOnForwardFailure=yes \
+                -o ServerAliveInterval=60 -N \
+                -R ${REMOTE_PORT}:localhost:${LOCAL_PORT} \
+                ${CUSTOM_USER}@${CUSTOM_HOST} -p ${CUSTOM_PORT} &> /tmp/tunnel_${REMOTE_PORT}.log &
+            
+            FINAL_HOST="${CUSTOM_HOST}"
+            LOG_FILE="/tmp/tunnel_${REMOTE_PORT}.log"
+        fi
 
         PID=$!
         
         # Give it a moment to establish or fail
-        sleep 2
+        sleep 3
 
         # Check if the process is still running
         if ps -p $PID > /dev/null; then
             echo -e "${EMOJI_SUCCESS} ${C_GREEN}Success! Tunnel is active.${C_RESET}"
             echo -e "  ${C_WHITE}PID:${C_RESET} ${C_YELLOW}${PID}${C_RESET}"
-            echo -e "  ${C_WHITE}URL:${C_RESET} ${C_CYAN}http://${REMOTE_HOST}:${REMOTE_PORT}${C_RESET} (if forwarding a web server)"
-            echo -e "  ${C_WHITE}Log:${C_RESET} /tmp/tunnel_${REMOTE_PORT}.log"
-            echo -e "\n${EMOJI_STOP} To stop this tunnel, run: ${C_PURPLE}tunnel kill ${PID}${C_RESET}\n"
+            
+            if [ "$TUNNEL_SERVICE" = "serveo" ]; then
+                if [ -n "$SERVEO_SUBDOMAIN" ]; then
+                    echo -e "  ${C_WHITE}URL:${C_RESET} ${C_CYAN}http://${SERVEO_SUBDOMAIN}.serveo.net:${REMOTE_PORT}${C_RESET}"
+                else
+                    echo -e "  ${C_WHITE}URL:${C_RESET} ${C_CYAN}http://serveo.net:${REMOTE_PORT}${C_RESET}"
+                    echo -e "  ${C_YELLOW}Note:${C_RESET} Serveo.net will show the actual subdomain in the SSH output"
+                fi
+            else
+                echo -e "  ${C_WHITE}URL:${C_RESET} ${C_CYAN}http://${CUSTOM_HOST}:${REMOTE_PORT}${C_RESET} (if forwarding a web server)"
+            fi
+            
+            echo -e "  ${C_WHITE}Log:${C_RESET} ${LOG_FILE}"
+            
+            if [ "$TUNNEL_SERVICE" = "serveo" ]; then
+                echo -e "\n${EMOJI_WARNING} ${C_YELLOW}Security Reminder:${C_RESET} This tunnel is ${C_RED}PUBLICLY ACCESSIBLE${C_RESET} by anyone!"
+            fi
+            
+            echo -e "\n${EMOJI_STOP} To stop this tunnel, run: ${C_PURPLE}$0 kill ${PID}${C_RESET}\n"
         else
             echo -e "${EMOJI_ERROR} ${C_RED}Oh no! The tunnel failed to start.${C_RESET}"
-            echo -e "  This could be due to a password failure, a taken port, or a connection issue."
-            echo -e "  Check the log for details: ${C_YELLOW}cat /tmp/tunnel_${REMOTE_PORT}.log${C_RESET}\n"
+            echo -e "  Possible reasons:"
+            if [ "$TUNNEL_SERVICE" = "serveo" ]; then
+                echo -e "  • Serveo.net service might be down or busy"
+                echo -e "  • Port might be already in use"
+                echo -e "  • Network connectivity issues"
+            else
+                echo -e "  • Authentication failure"
+                echo -e "  • Port already in use on remote server"
+                echo -e "  • Network connectivity issues"
+            fi
+            echo -e "  Check the log for details: ${C_YELLOW}cat ${LOG_FILE}${C_RESET}\n"
             # Clean up the log if it's empty
-            [ ! -s "/tmp/tunnel_${REMOTE_PORT}.log" ] && rm "/tmp/tunnel_${REMOTE_PORT}.log"
+            [ -f "${LOG_FILE}" ] && [ ! -s "${LOG_FILE}" ] && rm "${LOG_FILE}"
         fi
         ;;
 
     list)
-        echo -e "\n${EMOJI_LIST} ${C_BLUE}Searching for active tunnels to ${C_WHITE}${REMOTE_HOST}${C_RESET}..."
+        echo -e "\n${EMOJI_LIST} ${C_BLUE}Searching for active tunnels...${C_RESET}"
+        show_service_info
         
-        # pgrep is great for this. -a shows the full command line.
-        PIDS=$(pgrep -af "ssh.*-R.*${REMOTE_HOST}")
+        if [ "$TUNNEL_SERVICE" = "serveo" ]; then
+            SEARCH_PATTERN="ssh.*serveo.net"
+            SERVICE_NAME="Serveo.net"
+        else
+            SEARCH_PATTERN="ssh.*${CUSTOM_HOST}"
+            SERVICE_NAME="${CUSTOM_HOST}"
+        fi
+        
+        echo -e "${C_YELLOW}Active tunnels to ${SERVICE_NAME}:${C_RESET}"
+        PIDS=$(pgrep -af "$SEARCH_PATTERN")
         
         if [ -n "$PIDS" ]; then
             echo -e "------------------------------------------------------------------"
             echo -e "${C_WHITE}PID\t\tREMOTE PORT\t\tFORWARDED FROM (Local Port)${C_RESET}"
             echo -e "------------------------------------------------------------------"
-            # Use a while loop to parse the output nicely
             while read -r line; do
                 pid=$(echo "$line" | awk '{print $1}')
                 # Extract ports using some regex magic
-                remote_p=$(echo "$line" | sed -n 's/.*-R \([0-9]*\):.*/\1/p')
-                local_p=$(echo "$line" | sed -n 's/.*localhost:\([0-9]*\).*/\1/p')
+                if [[ "$line" == *"-R "*":"*":"* ]]; then
+                    # Format: -R remote_port:localhost:local_port
+                    remote_p=$(echo "$line" | sed -n 's/.*-R \([0-9]*\):.*/\1/p')
+                    local_p=$(echo "$line" | sed -n 's/.*localhost:\([0-9]*\).*/\1/p')
+                elif [[ "$line" == *"-R "*":"* ]]; then
+                    # Format: -R subdomain:remote_port:localhost:local_port
+                    remote_p=$(echo "$line" | sed -n 's/.*-R [^:]*:\([0-9]*\):.*/\1/p')
+                    local_p=$(echo "$line" | sed -n 's/.*localhost:\([0-9]*\).*/\1/p')
+                else
+                    remote_p="N/A"
+                    local_p="N/A"
+                fi
                 echo -e "${C_YELLOW}${pid}${C_RESET}\t\t${C_CYAN}${remote_p}${C_RESET}\t\t\t${C_PURPLE}${local_p}${C_RESET}"
             done <<< "$PIDS"
             echo -e "------------------------------------------------------------------\n"
         else
-            echo -e "${EMOJI_SPARKLE} ${C_GREEN}No active tunnels found. Your network is quiet!${C_RESET}\n"
+            echo -e "${EMOJI_SPARKLE} ${C_GREEN}No active tunnels found to ${SERVICE_NAME}.${C_RESET}\n"
         fi
         ;;
 
@@ -140,30 +266,46 @@ case "$1" in
 
         # Check if the process exists before trying to kill it
         if ps -p $PID_TO_KILL > /dev/null; then
+            # Show what we're killing
+            PROCESS_INFO=$(ps -p $PID_TO_KILL -o command=)
+            echo -e "\n${EMOJI_STOP} ${C_YELLOW}Terminating tunnel:${C_RESET}"
+            echo -e "  ${C_WHITE}PID:${C_RESET} ${C_RED}${PID_TO_KILL}${C_RESET}"
+            echo -e "  ${C_WHITE}Command:${C_RESET} ${C_CYAN}${PROCESS_INFO}${C_RESET}"
+            
             kill $PID_TO_KILL
-            echo -e "\n${EMOJI_STOP} ${C_GREEN}Signal sent to terminate tunnel with PID ${C_YELLOW}${PID_TO_KILL}${C_RESET}.${C_RESET}\n"
+            echo -e "\n${EMOJI_SUCCESS} ${C_GREEN}Signal sent to terminate tunnel.${C_RESET}\n"
         else
             echo -e "\n${EMOJI_ERROR} ${C_RED}Error: No process found with PID ${C_YELLOW}${PID_TO_KILL}${C_RESET}.${C_RESET}\n"
         fi
         ;;
 
     killall)
-        echo -e "\n${EMOJI_STOP} ${C_BLUE}Preparing to terminate all tunnels to ${C_WHITE}${REMOTE_HOST}${C_RESET}..."
-        PIDS_TO_KILL=$(pgrep -f "ssh.*-R.*${REMOTE_HOST}")
+        echo -e "\n${EMOJI_STOP} ${C_BLUE}Preparing to terminate all tunnels...${C_RESET}"
+        show_service_info
+        
+        if [ "$TUNNEL_SERVICE" = "serveo" ]; then
+            SEARCH_PATTERN="ssh.*serveo.net"
+            SERVICE_NAME="Serveo.net"
+        else
+            SEARCH_PATTERN="ssh.*${CUSTOM_HOST}"
+            SERVICE_NAME="${CUSTOM_HOST}"
+        fi
+        
+        PIDS_TO_KILL=$(pgrep -f "$SEARCH_PATTERN")
         
         if [ -n "$PIDS_TO_KILL" ]; then
-            echo -e "${C_YELLOW}This will kill the following processes:${C_RESET}"
-            # Show the processes before killing them
-            pgrep -af "ssh.*-R.*${REMOTE_HOST}"
-            read -p "$(echo -e ${C_RED}"Are you sure? [y/N] "${C_RESET})" confirm
+            echo -e "${C_YELLOW}Found ${C_RED}$(echo "$PIDS_TO_KILL" | wc -w)${C_YELLOW} active tunnel(s) to ${SERVICE_NAME}:${C_RESET}"
+            pgrep -af "$SEARCH_PATTERN"
+            echo
+            read -p "$(echo -e ${C_RED}"Are you sure you want to kill ALL tunnels? [y/N] "${C_RESET})" confirm
             if [[ "$confirm" =~ ^[yY](es)?$ ]]; then
-                kill $PIDS_TO_KILL
+                kill $PIDS_TO_KILL 2>/dev/null
                 echo -e "\n${EMOJI_SUCCESS} ${C_GREEN}All tunnels terminated.${C_RESET}\n"
             else
                 echo -e "\n${C_YELLOW}Operation cancelled.${C_RESET}\n"
             fi
         else
-            echo -e "${EMOJI_SPARKLE} ${C_GREEN}No active tunnels to kill.${C_RESET}\n"
+            echo -e "${EMOJI_SPARKLE} ${C_GREEN}No active tunnels found for ${SERVICE_NAME}.${C_RESET}\n"
         fi
         ;;
 
@@ -172,6 +314,7 @@ case "$1" in
         ;;
 
     *)
+        echo -e "\n${EMOJI_ERROR} ${C_RED}Unknown command: $1${C_RESET}"
         usage
         exit 1
         ;;
