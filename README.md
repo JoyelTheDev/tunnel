@@ -15,6 +15,8 @@ if want u can install rdp in kvm
 # RDP CODES 🚀 
 
 ```sudo apt update && sudo apt upgrade -y
+sudo apt update
+sudo apt install -y firefox
 
 sudo apt install xfce4 xfce4-goodies xrdp -y
 
